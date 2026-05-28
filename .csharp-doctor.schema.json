@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://csharp.doctor/schema/v1/csharp-doctor.config.json",
+  "title": "CSharp Doctor configuration",
+  "type": "object",
+  "properties": {
+    "lint": { "type": "boolean", "default": true },
+    "deadCode": { "type": "boolean", "default": true },
+    "failOn": { "enum": ["error", "warning", "none"], "default": "error" },
+    "rootDir": { "type": "string" },
+    "respectInlineDisables": { "type": "boolean", "default": true },
+    "rules": {
+      "type": "object",
+      "additionalProperties": { "enum": ["error", "warning", "info", "off"] }
+    },
+    "categories": {
+      "type": "object",
+      "additionalProperties": { "enum": ["error", "warning", "info", "off"] },
+      "description": "Override severity by category: Security, Correctness, Performance, Maintainability, AspNetCore"
+    },
+    "ignore": {
+      "type": "object",
+      "properties": {
+        "rules": { "type": "array", "items": { "type": "string" } },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "surfaces": {
+      "type": "object",
+      "properties": {
+        "cli": { "$ref": "#/$defs/surfaceFilter" },
+        "prComment": { "$ref": "#/$defs/surfaceFilter" },
+        "score": { "$ref": "#/$defs/surfaceFilter" },
+        "ciFailure": { "$ref": "#/$defs/surfaceFilter" }
+      }
+    }
+  },
+  "$defs": {
+    "surfaceFilter": {
+      "type": "object",
+      "properties": {
+        "includeTags": { "type": "array", "items": { "type": "string" } },
+        "excludeTags": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

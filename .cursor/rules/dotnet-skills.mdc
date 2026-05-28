@@ -1,0 +1,88 @@
+---
+description: Routes .NET work in this workspace to the relevant dotnet/skills plugins (cloned at ~/.cursor/plugins/local/dotnet-agent-skills).
+alwaysApply: true
+---
+
+# .NET Skills Routing for csharp-doctor
+
+This workspace is wired to the `dotnet-agent-skills` marketplace (https://github.com/dotnet/skills)
+via the local symlink `~/.cursor/plugins/local/dotnet-agent-skills`.
+
+Stack snapshot (don't override without checking these):
+
+- .NET 10 SDK (`global.json` -> `10.0.203`), `TargetFramework=net10.0`, `LangVersion=latest`
+- Central Package Management enabled (`Directory.Packages.props`)
+- `TreatWarningsAsErrors=true`, `Nullable=enable`, `ImplicitUsings=enable`
+- Roslyn analyzers (`Microsoft.CodeAnalysis.CSharp` 4.12) in `src/CSharpDoctor.Analyzers`
+- ASP.NET API in `src/CSharpDoctor.Api`
+- CLI on `System.CommandLine` in `src/CSharpDoctor.Cli`
+- xUnit v2 + Shouldly + NSubstitute + Testcontainers + Verify + NetArchTest
+
+## When to reach for which skill
+
+Always pair these with the existing `csharp-tdd-test-first.mdc` rule (tests first).
+
+### Tests (plugin: `dotnet-test`)
+
+| Task | Skill |
+|------|-------|
+| Run / filter `dotnet test`, pick VSTest vs MTP syntax | `run-tests` |
+| Migrate `xunit` v2 -> `xunit.v3` (project standard) | `migrate-xunit-to-xunit-v3` |
+| Move from VSTest runner to Microsoft.Testing.Platform | `migrate-vstest-to-mtp` |
+| Review tests for weak / vacuous assertions | `assertion-quality` |
+| Find missing coverage on changed code | `test-gap-analysis`, `coverage-analysis` |
+| Smell / anti-pattern audit before merging | `test-anti-patterns`, `test-smell-detection` |
+| Wrap `DateTime.UtcNow`, `File.*`, `Environment.*`, etc. for testability | `generate-testability-wrappers`, `detect-static-dependencies` |
+| Categorize tests with traits / categories | `test-tagging` |
+
+### Build & packages (plugins: `dotnet-msbuild`, `dotnet-nuget`)
+
+| Task | Skill |
+|------|-------|
+| Read a `.binlog` and explain a failure | `dotnet-msbuild/binlog-failure-analysis` |
+| Slow build investigation | `dotnet-msbuild/build-perf-diagnostics`, `eval-performance`, `incremental-build`, `build-parallelism` |
+| Audit / refactor `Directory.Build.props` | `dotnet-msbuild/directory-build-organization`, `property-patterns`, `item-management`, `msbuild-antipatterns` |
+| Custom MSBuild targets / extension points (this repo ships a Roslyn analyzer + Sarif) | `target-authoring`, `extension-points`, `including-generated-files` |
+| Drift / version conflicts across CPM | `dotnet-nuget/convert-to-cpm` (also re-aligns versions when already on CPM) |
+
+### Analyzer / Roslyn / general C# (plugin: `dotnet`)
+
+| Task | Skill |
+|------|-------|
+| Throwaway `.cs` repro or quick API probe (don't add to solution) | `csharp-scripts` |
+| P/Invoke / native interop questions | `dotnet-pinvoke` |
+| Publishing the analyzer / CLI to NuGet via Trusted Publishing | `nuget-trusted-publishing` |
+
+### ASP.NET API (plugin: `dotnet-aspnet`)
+
+Use for changes inside `src/CSharpDoctor.Api`:
+
+- `dotnet-webapi` for endpoint shape / minimal API patterns
+- `minimal-api-file-upload` for inspection upload endpoints
+- `configuring-opentelemetry-dotnet` if/when telemetry is added
+
+### Diagnostics / perf (plugin: `dotnet-diag`)
+
+Analyzer perf and CLI perf belong here:
+
+- `analyzing-dotnet-performance`, `microbenchmarking`, `dotnet-trace-collect`, `dump-collect`
+
+### Upgrades (plugin: `dotnet-upgrade`)
+
+- Already on .NET 10 -> use `migrate-dotnet10-to-dotnet11` only when explicitly bumping
+- `migrate-nullable-references` if a project ever flips `Nullable` off->on
+- `dotnet-aot-compat` before publishing the CLI as Native AOT
+
+### Skills NOT relevant here (do not load)
+
+`dotnet-blazor`, `dotnet-maui`, `dotnet-ai`, `dotnet-data`, `dotnet-template-engine` (unless we
+start shipping `dotnet new` templates), `dotnet-experimental`.
+
+## Notes & gotchas
+
+- The `dotnet` plugin bundles an LSP config (`lsp.json`) launching `roslyn-language-server` via
+  `dotnet dnx`. If you already have the C# Dev Kit / OmniSharp wired in Cursor, only enable one
+  to avoid duplicate diagnostics.
+- The marketplace is a **symlink** -- run `cd ~/.cursor/plugins/sources/dotnet-skills && git pull`
+  to refresh; no need to re-link.
+- After installing/uninstalling plugins, run `Developer: Reload Window` in Cursor.

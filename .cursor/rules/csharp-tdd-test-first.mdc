@@ -1,0 +1,184 @@
+---
+description: Enforce C# test-first TDD with .NET test stack guardrails
+alwaysApply: true
+---
+
+# C# TDD Test-First Guardrail
+
+STOP! You are about to write code. Follow TDD by writing the TEST FIRST.
+
+## Recommended .NET Testing Stack
+
+Use these defaults unless project conventions already dictate otherwise:
+
+- Test framework: xUnit v3 (fallback: NUnit, TUnit, MSTest if already used)
+- Assertions: Shouldly (MIT licensed)
+- Do not introduce FluentAssertions v8+ in new code (commercial license required)
+- For existing FluentAssertions codebases, pin to `[7.0.0]` or migrate to AwesomeAssertions
+- Mocking: NSubstitute preferred for new code (FakeItEasy acceptable)
+- Avoid Moq in new projects due to SponsorLink concerns
+- Test data: AutoFixture (SUT/auto-mocking), Bogus (realistic fake data)
+- Integration tests: WebApplicationFactory + Testcontainers + Respawn
+- Snapshot tests: Verify (`Verify.Xunit` / `Verify.NUnit`)
+- Architecture tests: NetArchTest or ArchUnitNET
+- E2E: Playwright for .NET
+
+## Action Required
+
+Proceed only when at least one condition is true:
+
+1. This is a test file (`*Tests.cs`, `*Test.cs`, `*Spec.cs`, files in a `*.Tests` project)
+2. This is an exception file/type listed in "Exceptions (Proceed Without Test)"
+3. A corresponding test file exists and has been run showing all new tests failed in RED phase
+
+If none of the above is true, STOP and do this first:
+
+1. Decide test type first:
+   - Endpoint, handler-with-DB, or anything crossing process boundaries -> integration test using WebApplicationFactory + Testcontainers
+   - Pure domain logic (entities, value objects, domain services, validators, mappers) -> unit test
+   - Default bias: prefer an integration test when code is reachable from an endpoint for higher confidence per test
+2. Create `<ClassName>Tests.cs` in the corresponding test project  
+   Example: `MyApp.Domain` -> `MyApp.Domain.UnitTests`, `MyApp.Api` -> `MyApp.Api.IntegrationTests`
+3. Write tests using Shouldly assertions and NSubstitute mocks (unless project standards differ)
+4. Run `dotnet test` (or filtered test run) and verify all new tests fail in RED phase
+5. Only then return to implementation
+
+## TDD Cycle
+
+- RED: Write failing tests first (all new tests must fail on assertions)
+- GREEN: Write the minimal code to pass
+- REFACTOR: Clean up while tests remain green
+
+## RED Phase Requirements
+
+Valid RED phase means:
+
+- All new tests failed with assertion failures from the assertion library in use
+  - `Shouldly.ShouldAssertException`
+  - `Xunit.Sdk.XunitException`
+  - `AssertionFailedException` (AwesomeAssertions / FluentAssertions v7)
+  - `NUnit.Framework.AssertionException`
+- Test discovery succeeded and tests executed
+- For integration tests, Testcontainers started and the test reached assertion execution
+
+Invalid RED phase (do not proceed):
+
+- Any new test passed
+- Build/compiler errors (for example `CS*` errors)
+- Test discovery failures (missing `[Fact]`, `[Test]`, `[TestMethod]`)
+- Runtime/wiring errors (`TypeLoadException`, `FileNotFoundException`, DI resolution errors, similar infra failures)
+- Treating `NotImplementedException` as success
+- Docker/Testcontainers startup failures
+
+If any new test passes in RED phase, tests are weak/vacuous. Fix tests first.
+
+## Exceptions (Proceed Without Test)
+
+### Test Files and Test Projects
+
+- `*Tests.cs`, `*Test.cs`, `*Spec.cs`, `*Fixture.cs`
+- Any file under a `*.Tests`, `*.UnitTests`, or `*.IntegrationTests` project
+- Test infrastructure (WebApplicationFactory subclasses, Testcontainers fixtures, `ICollectionFixture` / `IClassFixture`, `IAsyncLifetime` harnesses, Respawn configuration, test base classes)
+
+### Project/Solution and Build Configuration
+
+- `*.csproj`, `*.sln`, `*.props`, `*.targets`
+- `Directory.Build.props`, `Directory.Packages.props`, `global.json`, `NuGet.config`
+- `.editorconfig`, `.gitignore`
+
+### Runtime/Host/Infra Configuration
+
+- `appsettings.json`, `appsettings.*.json`, `launchSettings.json`, `web.config`, `host.json`, `local.settings.json`
+- `Dockerfile`, `docker-compose.yml`, `azure-pipelines.yml`, `*.bicep`, `*.tf`, `.github/workflows/*`
+
+### Documentation and Data Files
+
+- Docs: `*.md`, `*.txt`, `*.rst`, `LICENSE`, `README`, `CHANGELOG`, ADRs
+- Data/markup/style: `*.json`, `*.yaml`, `*.yml`, `*.xml`, `*.csv`, `*.sql`, `*.html`, `*.css`, `*.scss`, `.razor` without `@code`
+
+### Pure Type Definitions Without Logic
+
+- Interfaces (`IFoo.cs`) with signatures only
+- Marker/empty abstract classes, enums
+- DTOs/POCOs/records with auto-properties only and no methods or computed properties
+- EF Core `IEntityTypeConfiguration<T>` classes containing only builder configuration (no domain logic)
+- MediatR request/notification marker types (for example `record GetCustomerQuery(Guid Id) : IRequest<CustomerDto>;`)
+  - Handlers still require tests
+
+### Generated and Build Output
+
+- `*.Designer.cs`, `*.g.cs`, `*.g.i.cs`
+- Files under `obj/`
+- `Migrations/*.Designer.cs`
+- Source-generator output
+- Build artifacts: `bin/`, `obj/`, `publish/`, `TestResults/`, `*.nupkg`
+
+## Requires Test First
+
+Always require tests first for executable behavior, including:
+
+- C# classes with methods (services, handlers, controllers, minimal API endpoints, middleware, filters)
+- MediatR handlers (`IRequestHandler`, `INotificationHandler`) - test the handler, not just request types
+- FluentValidation validators - write validator tests with `TestValidate()`
+- CQRS command/query handlers, domain services, application services
+- Records/classes with computed properties, methods, or invariant-enforcing constructors
+- Domain entities, value objects, aggregates with behavior
+- EF Core repositories and query/persistence logic
+- `IHostedService`, `BackgroundService`, Azure Functions, Worker Services
+- Extension methods and mappers with conditional/transform logic
+- Razor pages/Blazor components with `@code` logic
+- API endpoints (controllers, minimal APIs) - prefer integration tests over controller unit tests
+- Any source file under `src/` that compiles to executable behavior
+
+## Assertion and Mocking Style
+
+Use these by default unless project conventions already differ:
+
+```csharp
+// Shouldly
+result.ShouldBe(42);
+result.ShouldBeOfType<Customer>();
+Should.Throw<InvalidOperationException>(() => sut.Withdraw(-1));
+await Should.ThrowAsync<DomainException>(() => sut.ApproveAsync(id));
+
+// NSubstitute
+var repo = Substitute.For<ICustomerRepository>();
+repo.GetByIdAsync(id, Arg.Any<CancellationToken>()).Returns(customer);
+await repo.Received(1).SaveAsync(Arg.Is<Customer>(c => c.Id == id));
+```
+
+```csharp
+// Integration test skeleton (WebApplicationFactory + Testcontainers)
+public class CustomerEndpointsTests : IClassFixture<IntegrationTestFactory>
+{
+    private readonly HttpClient _client;
+    public CustomerEndpointsTests(IntegrationTestFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task GetCustomer_ReturnsCustomer_WhenIdExists()
+    {
+        // arrange via DbContext, act via _client, assert via Shouldly
+    }
+}
+```
+
+## Critical Check Before Implementation
+
+Did you run `dotnet test` (or `dotnet test --filter <TestClass>`) and verify all new tests failed on assertions?
+
+- If any test passed against stubs/default returns, tests are too weak -> fix tests
+- If build failed, RED phase is invalid -> make implementation compile with a stub and rerun tests
+- For integration tests, confirm Testcontainers started Docker images (check test output for container IDs)
+- Do not implement until RED phase is valid
+
+Recommended compile-safe RED stub:
+
+`public Task<ReturnType> MethodNameAsync(...) => throw new NotImplementedException();`
+
+This lets the project compile, lets tests execute, and guarantees a failing assertion when tests expect specific values.
+
+## License and Compliance Guardrail
+
+- Do not add `FluentAssertions` 
+- If `FluentAssertions` exists without a pinned version, pin to `[7.0.0]` or replace with Shouldly/AwesomeAssertions and flag it
+- Do not introduce Moq in new projects; use NSubstitute unless project standards already use Moq

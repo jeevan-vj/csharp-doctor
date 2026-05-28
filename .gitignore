@@ -1,0 +1,33 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Tt]est[Rr]esults/
+*.nupkg
+*.snupkg
+
+/react-doctor/
+/.tools/
+
+## IDE
+.vs/
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Verify snapshots (committed after approval)
+# *.received.*
+
+## Secrets
+*.pfx
+secrets.json
+appsettings.*.local.json

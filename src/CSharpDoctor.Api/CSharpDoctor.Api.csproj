@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>CSharpDoctor.Api</RootNamespace>
+    <AssemblyName>CSharpDoctor.Api</AssemblyName>
+    <Description>Programmatic API for CSharp Doctor inspections.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CSharpDoctor.Core\CSharpDoctor.Core.csproj" />
+    <ProjectReference Include="..\CSharpDoctor.Analyzers\CSharpDoctor.Analyzers.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+</Project>

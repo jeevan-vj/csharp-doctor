@@ -1,0 +1,8 @@
+{
+  "$schema": "./.csharp-doctor.schema.json",
+  "failOn": "error",
+  "surfaces": {
+    "prComment": { "excludeTags": ["design"] },
+    "ciFailure": { "excludeTags": ["design"] }
+  }
+}

@@ -1,0 +1,69 @@
+name: CSharp Doctor
+description: Scan .NET solutions for security, correctness, and performance issues
+branding:
+  icon: activity
+  color: blue
+
+inputs:
+  directory:
+    description: Directory containing solution or projects
+    required: false
+    default: .
+  project:
+    description: Specific solution or project path
+    required: false
+  diff:
+    description: Base ref for diff scan (e.g. main)
+    required: false
+  fail-on:
+    description: Fail when diagnostics at or above this level (error, warning, none)
+    required: false
+    default: error
+  format:
+    description: Output format (console, json, sarif)
+    required: false
+    default: console
+  annotations:
+    description: Emit GitHub workflow command annotations
+    required: false
+    default: 'false'
+  dotnet-version:
+    description: .NET SDK version
+    required: false
+    default: '9.0.x'
+
+outputs:
+  exit-code:
+    description: Exit code from csharp-doctor
+    value: ${{ steps.scan.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Install csharp-doctor
+      shell: bash
+      run: dotnet tool install -g CSharpDoctor.Cli --version 0.1.0 || dotnet tool update -g CSharpDoctor.Cli --version 0.1.0 || true
+
+    - name: Run scan
+      id: scan
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: |
+        set +e
+        ARGS=()
+        if [ -n "${{ inputs.project }}" ]; then ARGS+=(--project "${{ inputs.project }}"); fi
+        if [ -n "${{ inputs.diff }}" ]; then ARGS+=(--diff "${{ inputs.diff }}"); fi
+        ARGS+=(--fail-on "${{ inputs.fail-on }}")
+        ARGS+=(--format "${{ inputs.format }}")
+        if [ "${{ inputs.annotations }}" = "true" ]; then ARGS+=(--annotations); fi
+        dotnet csharp-doctor "${{ inputs.directory }}" "${ARGS[@]}"
+        echo "exit-code=$?" >> "$GITHUB_OUTPUT"
+      continue-on-error: true
+
+    - name: Fail job on scan exit code
+      shell: bash
+      run: exit "${{ steps.scan.outputs.exit-code }}"

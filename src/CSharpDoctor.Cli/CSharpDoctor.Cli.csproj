@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>CSharpDoctor.Cli</RootNamespace>
+    <AssemblyName>csharp-doctor</AssemblyName>
+    <Description>CLI for scanning .NET solutions with CSharp Doctor.</Description>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>csharp-doctor</ToolCommandName>
+    <PackageId>CSharpDoctor.Cli</PackageId>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CSharpDoctor.Core\CSharpDoctor.Core.csproj" />
+    <ProjectReference Include="..\CSharpDoctor.Analyzers\CSharpDoctor.Analyzers.csproj" />
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+</Project>
