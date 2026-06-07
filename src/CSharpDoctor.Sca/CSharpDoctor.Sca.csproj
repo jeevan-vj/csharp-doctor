@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>CSharpDoctor.Sca</RootNamespace>
+    <AssemblyName>CSharpDoctor.Sca</AssemblyName>
+    <Description>NuGet vulnerability (SCA) inspector for CSharp Doctor.</Description>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CSharpDoctor.Core\CSharpDoctor.Core.csproj" />
+  </ItemGroup>
+</Project>

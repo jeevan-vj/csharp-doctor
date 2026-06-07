@@ -162,11 +162,39 @@ csharp-doctor --fail-on warning   # stricter gate
 csharp-doctor --fail-on none      # never fail on findings
 csharp-doctor --annotations       # GitHub Actions workflow commands
 csharp-doctor --no-lint           # skip Roslyn analyzers (config-only path)
+csharp-doctor --wiring            # also run wiring checks (opt in; whole solution)
+csharp-doctor --ef                # also run EF Core migration checks (opt in)
+csharp-doctor --no-wiring         # explicitly disable wiring checks
+csharp-doctor --no-ef             # explicitly disable EF migration checks
+csharp-doctor --all-checks        # enable every inspector (lint + wiring + ef)
 ```
+
+## Solution-scoped checks (opt in)
+
+By default `csharp-doctor` runs lint only (the Roslyn analyzers above). The wiring and EF
+inspectors load the whole solution, so they are **off unless you ask for them**.
+
+| Flag | What it detects |
+|------|-----------------|
+| `--wiring` | DI wiring gaps in the composition root. Ships `CSDW0001` (unregistered hosted service), `CSDW0008` (unregistered constructor dependency), `CSDW0010` (singleton depends on scoped service). |
+| `--ef` | Unsafe EF Core migrations. Ships `CSDE0001` (drop column), `CSDE0002` (NOT NULL column without default), `CSDE0006` (type shrink data loss). Lint also ships `CSDE0008` (`SaveChanges` in loop, `efcore` tag). |
+| `--all-checks` | All inspectors. |
+
+Precedence is `--no-X` > `--X` > config `checks.X` > default (`lint=true`, `wiring=false`, `ef=false`).
+`--wiring` is ignored with `--staged` (it needs whole-solution context) and warns on stderr.
+
+Enable them for a repo via `.csharp-doctor.json`:
+
+```json
+{ "checks": { "wiring": true, "ef": true } }
+```
+
+Note: wiring/EF rules are tagged `solution-scoped`. The first `--wiring` run pays a one-time
+MSBuild workspace load (~1-2s); lint-only runs are unaffected.
 
 ## Rules
 
-**45 rules** across Security, Correctness, Performance, Maintainability, and ASP.NET Core. ASP.NET rules apply only to web projects (detected from `.csproj`).
+**57 rules** across Security, Correctness, Performance, Maintainability, Observability, ASP.NET Core, Wiring, and EF migrations. ASP.NET rules apply only to web projects (detected from `.csproj`).
 
 | ID | Category | Severity | Summary |
 |----|----------|----------|---------|
@@ -184,6 +212,10 @@ csharp-doctor --no-lint           # skip Roslyn analyzers (config-only path)
 | CSD0013 | Security | Warning | Insecure JWT bearer options |
 | CSD0014 | Security | Warning | Secrets in attribute arguments |
 | CSD0015 | Security | Warning | `Regex` without match timeout |
+| CSD0016 | Security | Warning | Path traversal via dynamic file path |
+| CSD0017 | Security | Warning | Command injection via `Process.Start` |
+| CSD0018 | Security | Warning | SSRF via dynamic HTTP URL |
+| CSD0019 | Security | Warning | Open redirect via dynamic URL |
 | CSD0101 | Correctness | Warning | Unobserved `Task` |
 | CSD0102 | Correctness | Warning | `IDisposable` without `using` |
 | CSD0103 | Correctness | Warning | Sync-over-async (`.Result`/`.Wait()`) |
@@ -198,6 +230,7 @@ csharp-doctor --no-lint           # skip Roslyn analyzers (config-only path)
 | CSD0204 | Performance | Warning | `new HttpClient()` in loop |
 | CSD0205 | Performance | Warning | Multiple `IEnumerable` enumeration |
 | CSD0206 | Performance | Warning | `string.Format` in loop |
+| CSDE0008 | Performance | Warning | `SaveChanges` / `SaveChangesAsync` in loop (`efcore` tag) |
 | CSD0301 | Maintainability | Info | Public instance fields (`design` tag) |
 | CSD0401 | AspNetCore | Warning | Minimal API without auth |
 | CSD0402 | AspNetCore | Error | `DbContext` as singleton |
@@ -214,6 +247,15 @@ csharp-doctor --no-lint           # skip Roslyn analyzers (config-only path)
 | CSD0414 | AspNetCore | Warning | `AddAuthentication` without `UseAuthentication` |
 | CSD0415 | AspNetCore | Warning | EF `EnableSensitiveDataLogging` |
 | CSD0416 | AspNetCore | Warning | EF `EnableDetailedErrors` |
+| CSD0501 | Observability | Warning | Sensitive data in logs |
+| CSD0502 | Observability | Warning | Exception not passed correctly to `LogError` |
+| CSD0503 | Observability | Warning | Raw HTTP request body/headers logged |
+| CSDW0001 | Wiring | Warning | Unregistered hosted service (`--wiring`) |
+| CSDW0008 | Wiring | Warning | Unregistered constructor dependency (`--wiring`) |
+| CSDW0010 | Wiring | Warning | Singleton depends on scoped service (`--wiring`) |
+| CSDE0001 | EfMigration | Warning | Migration drops column (`--ef`) |
+| CSDE0002 | EfMigration | Warning | NOT NULL column without default (`--ef`) |
+| CSDE0006 | EfMigration | Warning | Column type shrink data loss (`--ef`) |
 
 See [docs/rules/README.md](docs/rules/README.md) for the full index, CA complement matrix, and recommended `.editorconfig` preset.
 
@@ -228,6 +270,43 @@ dotnet test
 ```
 
 Follow TDD: write failing tests first (see `.cursor/rules/csharp-tdd-test-first.mdc`).
+
+## Releasing to NuGet
+
+The CLI is packaged as a [.NET Global Tool](https://learn.microsoft.com/dotnet/core/tools/global-tools). Versions are driven by git tags via [`.github/workflows/release.yml`](.github/workflows/release.yml).
+
+### One-time setup
+
+1. Reserve the `CSharpDoctor.*` prefix on nuget.org (account → ID Prefix Reservations).
+2. Create an API key scoped to `Push new packages and package versions` for glob `CSharpDoctor.*`.
+3. Store it as the `NUGET_API_KEY` repository secret in GitHub.
+4. (Optional, recommended) After the first publish, enable [NuGet Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) for this repo + workflow and switch the release job to OIDC (the workflow has a commented-out `nuget/login@v1` block ready to flip on, then delete the secret).
+
+### Cut a release
+
+```bash
+# Pre-release (recommended for first ship — System.CommandLine dep is still prerelease)
+git tag v0.1.0-preview.1 && git push --tags
+
+# Stable
+git tag v0.1.0 && git push --tags
+```
+
+The workflow restores, builds, tests, packs, pushes `.nupkg` + `.snupkg` to nuget.org with `--skip-duplicate`, and creates a GitHub Release (marked prerelease automatically if the version contains `-`).
+
+### Manual / dry-run pack
+
+```bash
+dotnet pack src/CSharpDoctor.Cli/CSharpDoctor.Cli.csproj \
+  -c Release -o ./artifacts /p:Version=0.1.0-preview.1
+
+# Smoke test install from local feed
+mkdir /tmp/csd-smoke && cd /tmp/csd-smoke
+dotnet new tool-manifest
+dotnet tool install CSharpDoctor.Cli --version 0.1.0-preview.1 \
+  --add-source $OLDPWD/artifacts
+dotnet csharp-doctor --help
+```
 
 ## Privacy
 

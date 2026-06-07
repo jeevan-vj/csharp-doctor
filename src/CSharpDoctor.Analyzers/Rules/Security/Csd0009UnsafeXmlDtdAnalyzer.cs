@@ -26,7 +26,7 @@ public sealed class Csd0009UnsafeXmlDtdAnalyzer : CSharpDoctorAnalyzerBase
 
     private void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var text = context.Node.ToString();
+        var text = CodeTextExtractor.ToCodeText(context.Node);
         if (text.Contains("DtdProcessing.Parse", StringComparison.Ordinal)
             || text.Contains("DtdProcessing = Parse", StringComparison.Ordinal))
         {

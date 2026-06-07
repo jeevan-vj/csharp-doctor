@@ -31,4 +31,15 @@ public sealed class Csd0012Tests
             }
             """);
     }
+
+    [Fact]
+    public async Task ShouldNotReport_WhenPatternOnlyInStringLiteral()
+    {
+        await AnalyzerTest<Csd0012WeakTlsAnalyzer>.RunAsync(
+            """
+            class C {
+                string M() => "SecurityProtocolType.Tls11 is weak";
+            }
+            """);
+    }
 }

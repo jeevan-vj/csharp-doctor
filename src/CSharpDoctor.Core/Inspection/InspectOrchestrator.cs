@@ -1,12 +1,14 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
-using CSharpDoctor.Core.Analysis;
 using CSharpDoctor.Core.Configuration;
 using CSharpDoctor.Core.Diagnostics;
 using CSharpDoctor.Core.Discovery;
+using CSharpDoctor.Core.Inspectors;
 using CSharpDoctor.Core.Pipeline;
 using CSharpDoctor.Core.Reporting;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using DiagnosticSeverity = CSharpDoctor.Core.Diagnostics.DiagnosticSeverity;
 
 namespace CSharpDoctor.Core.Inspection;
 
@@ -14,9 +16,18 @@ namespace CSharpDoctor.Core.Inspection;
 public sealed class InspectOrchestrator
 {
     private readonly Func<ImmutableArray<DiagnosticAnalyzer>> _analyzerFactory;
+    private readonly IReadOnlyDictionary<string, Func<IInspector>>? _externalInspectorFactories;
+    private readonly Func<string, CancellationToken, Task<Solution?>>? _solutionLoader;
 
-    public InspectOrchestrator(Func<ImmutableArray<DiagnosticAnalyzer>>? analyzerFactory = null) =>
+    public InspectOrchestrator(
+        Func<ImmutableArray<DiagnosticAnalyzer>>? analyzerFactory = null,
+        IReadOnlyDictionary<string, Func<IInspector>>? externalInspectorFactories = null,
+        Func<string, CancellationToken, Task<Solution?>>? solutionLoader = null)
+    {
         _analyzerFactory = analyzerFactory ?? (() => []);
+        _externalInspectorFactories = externalInspectorFactories;
+        _solutionLoader = solutionLoader;
+    }
 
     public async Task<InspectResult> RunAsync(
         InspectRequest request,
@@ -46,8 +57,37 @@ public sealed class InspectOrchestrator
         var sourceFiles = ProjectDiscovery.FindSourceFiles(scanRoot, includeFiles);
         var csprojPaths = ProjectDiscovery.FindCsprojFiles(request.TargetDirectory);
         var fileCapabilities = ProjectFileCapabilities.Build(csprojPaths, sourceFiles);
-        var raw = await AnalyzerRunner.RunAsync(sourceFiles, _analyzerFactory(), cancellationToken)
-            .ConfigureAwait(false);
+
+        var solutionLazy = new Lazy<Task<Solution?>>(() =>
+            _solutionLoader is null
+                ? Task.FromResult<Solution?>(null)
+                : _solutionLoader(request.TargetDirectory, cancellationToken));
+
+        var context = new InspectContext(
+            request,
+            config,
+            sourceFiles,
+            csprojPaths,
+            scanRoot,
+            fileCapabilities,
+            solutionLazy);
+
+        var inspectors = InspectorRegistry.Resolve(
+            config,
+            () => new RoslynLintInspector(_analyzerFactory()),
+            _externalInspectorFactories);
+
+        var raw = new List<DiagnosticRecord>();
+        var runs = new Dictionary<string, InspectorRunInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var inspector in inspectors)
+        {
+            var inspectorStopwatch = Stopwatch.StartNew();
+            var diagnostics = await inspector.InspectAsync(context, cancellationToken).ConfigureAwait(false);
+            inspectorStopwatch.Stop();
+
+            raw.AddRange(diagnostics);
+            runs[inspector.Name] = new InspectorRunInfo(inspectorStopwatch.Elapsed, diagnostics.Count, Ran: true);
+        }
 
         var readLines = new Func<string, IReadOnlyList<string>>(path =>
             File.Exists(path) ? File.ReadAllLines(path) : Array.Empty<string>());
@@ -56,7 +96,19 @@ public sealed class InspectOrchestrator
         var processed = pipeline.Apply(raw);
 
         var forGate = DiagnosticSurfaceFilter.FilterForSurface(processed, OutputSurface.CiFailure, config);
+        var metrics = ScanMetricsCalculator.Compute(forGate, config.QualityGates.DebtWeights);
+        var baselinePath = string.IsNullOrWhiteSpace(config.QualityGates.BaselinePath)
+            ? null
+            : ConfigResolver.ResolvePathRelativeToConfig(config.ConfigFileDirectory, config.QualityGates.BaselinePath);
+        var baselineIdentities = BaselineLoader.LoadIdentities(baselinePath);
+        var qualityGates = QualityGateEvaluator.Evaluate(forGate, metrics, config.QualityGates, baselineIdentities);
+        var hotSpots = HotSpotRanker.Rank(metrics, config.HotSpots);
+
         var exitCode = ComputeExitCode(forGate, config.FailOn);
+        if (qualityGates.Enabled && !qualityGates.Passed)
+        {
+            exitCode = exitCode == 0 ? 1 : exitCode;
+        }
 
         stopwatch.Stop();
         return new InspectResult(
@@ -64,7 +116,11 @@ public sealed class InspectOrchestrator
             ErrorCount: processed.Count(d => d.Severity == DiagnosticSeverity.Error),
             WarningCount: processed.Count(d => d.Severity == DiagnosticSeverity.Warning),
             Elapsed: stopwatch.Elapsed,
-            ExitCode: exitCode);
+            ExitCode: exitCode,
+            InspectorRuns: runs,
+            Metrics: metrics,
+            QualityGates: qualityGates,
+            HotSpots: hotSpots);
     }
 
     public static int ComputeExitCode(IReadOnlyList<DiagnosticRecord> diagnostics, FailOnLevel failOn) =>
@@ -81,9 +137,14 @@ public sealed class InspectOrchestrator
         request.OutputFormat switch
         {
             OutputFormat.Json => JsonReportBuilder.Build(result, request.Mode),
+            OutputFormat.Html => HtmlReportBuilder.Build(result, request.Mode, config),
             OutputFormat.Sarif => SarifReportBuilder.Build(result.Diagnostics),
             _ => ConsoleReporter.Render(
                 DiagnosticSurfaceFilter.FilterForSurface(result.Diagnostics, OutputSurface.Cli, config),
-                result.Elapsed),
+                result.Elapsed,
+                result.InspectorRuns,
+                result.Metrics,
+                result.QualityGates,
+                result.HotSpots),
         };
 }

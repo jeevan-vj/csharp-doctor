@@ -47,7 +47,7 @@ public sealed class Csd0003InsecureDeserializationAnalyzer : CSharpDoctorAnalyze
             return;
         }
 
-        var text = invocation.ToString();
+        var text = CodeTextExtractor.ToCodeText(invocation);
         if (text.Contains("JsonSerializer.Deserialize<object>", StringComparison.Ordinal)
             || text.Contains("JsonSerializer.Deserialize(typeof(object)", StringComparison.Ordinal))
         {

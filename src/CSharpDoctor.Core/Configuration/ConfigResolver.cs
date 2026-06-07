@@ -14,8 +14,19 @@ public static class ConfigResolver
         CancellationToken cancellationToken = default)
     {
         var (fileConfig, configDir) = LoadFromDirectory(directory, cancellationToken);
-        var merged = Merge(fileConfig, configDir);
+        var merged = NormalizeLegacyAliases(Merge(fileConfig, configDir));
         return ApplyCliOverrides(merged, cliOverrides);
+    }
+
+    /// <summary>Folds the deprecated top-level <c>lint</c> flag into <see cref="ChecksConfig"/>.</summary>
+    public static CSharpDoctorConfig NormalizeLegacyAliases(CSharpDoctorConfig config)
+    {
+        if (!config.Lint && config.Checks.Lint)
+        {
+            return config with { Checks = config.Checks with { Lint = false } };
+        }
+
+        return config;
     }
 
     public static CSharpDoctorConfig Merge(
@@ -42,6 +53,14 @@ public static class ConfigResolver
         return config with
         {
             Lint = cli.Lint ?? config.Lint,
+            Checks = config.Checks with
+            {
+                Lint = cli.Lint ?? config.Checks.Lint,
+                Wiring = cli.Wiring ?? config.Checks.Wiring,
+                Ef = cli.Ef ?? config.Checks.Ef,
+                Architecture = cli.Architecture ?? config.Checks.Architecture,
+                Sca = cli.Sca ?? config.Checks.Sca,
+            },
             DeadCode = cli.DeadCode ?? config.DeadCode,
             FailOn = cli.FailOn ?? config.FailOn,
             RootDir = cli.RootDir ?? config.RootDir,
@@ -87,7 +106,20 @@ public static class ConfigResolver
                     PropertyNameCaseInsensitive = true,
                     Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
                 };
-                var parsed = JsonSerializer.Deserialize<CSharpDoctorConfig>(json, options);
+
+                CSharpDoctorConfig? parsed;
+                try
+                {
+                    parsed = JsonSerializer.Deserialize<CSharpDoctorConfig>(json, options);
+                }
+                catch (JsonException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid '{ConfigFileName}' at '{configPath}': {ex.Message} "
+                        + "Valid 'checks' keys are: lint, wiring, ef, architecture, sca.",
+                        ex);
+                }
+
                 return (parsed, current.FullName);
             }
 
@@ -124,6 +156,10 @@ public static class ConfigResolver
 /// <summary>CLI flag overrides applied after file config.</summary>
 public sealed record CliConfigOverrides(
     bool? Lint = null,
+    bool? Wiring = null,
+    bool? Ef = null,
+    bool? Architecture = null,
+    bool? Sca = null,
     bool? DeadCode = null,
     FailOnLevel? FailOn = null,
     string? RootDir = null,

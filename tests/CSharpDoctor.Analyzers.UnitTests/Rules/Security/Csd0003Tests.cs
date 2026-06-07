@@ -17,4 +17,13 @@ public sealed class Csd0003Tests
     [Fact]
     public async Task ShouldNotReport_WhenSafeCode() =>
         await AnalyzerTest<Csd0003InsecureDeserializationAnalyzer>.RunAsync("class C { int M() => 1; }");
+
+    [Fact]
+    public async Task ShouldNotReport_WhenPatternOnlyInStringLiteral() =>
+        await AnalyzerTest<Csd0003InsecureDeserializationAnalyzer>.RunAsync(
+            """
+            class C {
+                bool M(string text) => text.Contains("JsonSerializer.Deserialize<object>");
+            }
+            """);
 }

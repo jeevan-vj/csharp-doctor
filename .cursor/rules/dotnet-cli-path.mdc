@@ -1,0 +1,66 @@
+---
+description: Ensure dotnet CLI is on PATH before any shell command (macOS ~/.dotnet install).
+alwaysApply: true
+---
+
+# .NET CLI path (agent shells)
+
+Agent terminals often start **without** `dotnet` on `PATH`. On this machine the SDK is typically installed at `~/.dotnet`, not `/usr/local/bin`.
+
+## Before every `dotnet` command
+
+**Always** prefix shell commands that invoke `dotnet`, `csharp-doctor`, MSBuild, or `dotnet test` / `dotnet build` / `dotnet restore`:
+
+```bash
+export PATH="$HOME/.dotnet:$PATH"
+export DOTNET_ROOT="$HOME/.dotnet"
+```
+
+One-liner form (preferred in the Shell tool):
+
+```bash
+export PATH="$HOME/.dotnet:$PATH" DOTNET_ROOT="$HOME/.dotnet" && dotnet --version
+```
+
+Or call the binary directly:
+
+```bash
+"$HOME/.dotnet/dotnet" test
+```
+
+## Verify before blaming the repo
+
+```bash
+export PATH="$HOME/.dotnet:$PATH" DOTNET_ROOT="$HOME/.dotnet"
+which dotnet          # expect /Users/<you>/.dotnet/dotnet
+dotnet --version      # csharp-doctor: match global.json (10.0.203)
+```
+
+If `which dotnet` is empty or version is wrong, fix PATH first — do not assume the project is broken.
+
+## Permanent fix (user shell)
+
+Add to `~/.zshrc` (or `~/.bash_profile`):
+
+```bash
+export DOTNET_ROOT="$HOME/.dotnet"
+export PATH="$DOTNET_ROOT:$PATH"
+```
+
+Then `source ~/.zshrc` or open a new terminal.
+
+## If `~/.dotnet/dotnet` is missing
+
+Check other install locations:
+
+```bash
+ls /usr/local/share/dotnet/dotnet 2>/dev/null
+ls /opt/homebrew/bin/dotnet 2>/dev/null
+```
+
+Install or repair via https://dotnet.microsoft.com/download if none exist.
+
+## Do not
+
+- Run bare `dotnet …` without setting PATH in agent shells.
+- Report "SDK not found" without trying `$HOME/.dotnet/dotnet` first.

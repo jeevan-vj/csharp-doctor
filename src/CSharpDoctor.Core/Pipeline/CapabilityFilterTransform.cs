@@ -16,6 +16,11 @@ public sealed class CapabilityFilterTransform : IDiagnosticTransform
 
     public DiagnosticRecord? Apply(DiagnosticRecord diagnostic)
     {
+        if (string.IsNullOrWhiteSpace(diagnostic.FilePath))
+        {
+            return diagnostic;
+        }
+
         var path = Path.GetFullPath(diagnostic.FilePath);
         _fileCapabilities.TryGetValue(path, out var capabilities);
         capabilities ??= ProjectCapabilities.None;

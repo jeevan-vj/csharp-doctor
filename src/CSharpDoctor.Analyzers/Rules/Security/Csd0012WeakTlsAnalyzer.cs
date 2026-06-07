@@ -26,7 +26,7 @@ public sealed class Csd0012WeakTlsAnalyzer : CSharpDoctorAnalyzerBase
 
     private void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var text = context.Node.ToString();
+        var text = CodeTextExtractor.ToCodeText(context.Node);
         if (!text.Contains("SecurityProtocol", StringComparison.Ordinal))
         {
             return;

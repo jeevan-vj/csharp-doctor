@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'SemVer to publish (e.g. 0.1.0-preview.2). Required for manual runs.'
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not determine version"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: $VERSION"
+
+      - name: Restore
+        run: dotnet restore CSharpDoctor.sln
+
+      - name: Build
+        run: |
+          dotnet build CSharpDoctor.sln \
+            -c Release --no-restore \
+            /p:Version=${{ steps.ver.outputs.version }}
+
+      - name: Test
+        run: dotnet test CSharpDoctor.sln -c Release --no-build --verbosity normal
+
+      - name: Pack CLI
+        run: |
+          dotnet pack src/CSharpDoctor.Cli/CSharpDoctor.Cli.csproj \
+            -c Release --no-build \
+            -o ./artifacts \
+            /p:Version=${{ steps.ver.outputs.version }}
+
+      - name: Upload nupkg artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: ./artifacts/*.*nupkg
+
+      # Trusted Publishing (OIDC) — once configured on nuget.org,
+      # delete the NUGET_API_KEY secret and uncomment the login step below.
+      # - name: NuGet login (Trusted Publishing)
+      #   uses: nuget/login@v1
+      #   id: nuget_login
+      #   with:
+      #     user: ${{ vars.NUGET_USER }}
+
+      - name: Push to NuGet.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          # When using Trusted Publishing, replace the line above with:
+          # NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::NUGET_API_KEY secret is not set"; exit 1
+          fi
+          dotnet nuget push "./artifacts/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+          # Symbol packages
+          if ls ./artifacts/*.snupkg 1> /dev/null 2>&1; then
+            dotnet nuget push "./artifacts/*.snupkg" \
+              --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          fi
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./artifacts/*.*nupkg
+          generate_release_notes: true
+          prerelease: ${{ contains(steps.ver.outputs.version, '-') }}

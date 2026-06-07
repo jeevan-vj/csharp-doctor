@@ -31,4 +31,15 @@ public sealed class Csd0009Tests
             }
             """);
     }
+
+    [Fact]
+    public async Task ShouldNotReport_WhenPatternOnlyInStringLiteral()
+    {
+        await AnalyzerTest<Csd0009UnsafeXmlDtdAnalyzer>.RunAsync(
+            """
+            class C {
+                string M() => "DtdProcessing.Parse";
+            }
+            """);
+    }
 }

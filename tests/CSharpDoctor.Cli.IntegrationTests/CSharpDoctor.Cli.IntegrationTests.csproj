@@ -8,6 +8,9 @@
     <ProjectReference Include="..\..\src\CSharpDoctor.Analyzers\CSharpDoctor.Analyzers.csproj" />
     <ProjectReference Include="..\..\src\CSharpDoctor.Cli\CSharpDoctor.Cli.csproj" />
     <ProjectReference Include="..\..\src\CSharpDoctor.Core\CSharpDoctor.Core.csproj" />
+    <ProjectReference Include="..\..\src\CSharpDoctor.Wiring\CSharpDoctor.Wiring.csproj" />
+    <ProjectReference Include="..\..\src\CSharpDoctor.Ef\CSharpDoctor.Ef.csproj" />
+    <ProjectReference Include="..\..\src\CSharpDoctor.Sca\CSharpDoctor.Sca.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Testcontainers" />

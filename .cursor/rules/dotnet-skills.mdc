@@ -10,6 +10,7 @@ via the local symlink `~/.cursor/plugins/local/dotnet-agent-skills`.
 
 Stack snapshot (don't override without checking these):
 
+- **Agent shells**: see `dotnet-cli-path.mdc` — export `PATH`/`DOTNET_ROOT` to `$HOME/.dotnet` before every `dotnet` command.
 - .NET 10 SDK (`global.json` -> `10.0.203`), `TargetFramework=net10.0`, `LangVersion=latest`
 - Central Package Management enabled (`Directory.Packages.props`)
 - `TreatWarningsAsErrors=true`, `Nullable=enable`, `ImplicitUsings=enable`

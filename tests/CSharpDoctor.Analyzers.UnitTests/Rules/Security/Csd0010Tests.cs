@@ -35,4 +35,16 @@ public sealed class Csd0010Tests
             }
             """);
     }
+
+    [Fact]
+    public async Task ShouldNotReport_WhenPatternOnlyInStringLiteralOrComment()
+    {
+        await AnalyzerTest<Csd0010TypeNameHandlingAnalyzer>.RunAsync(
+            """
+            class C {
+                // Detects TypeNameHandling.All misuse.
+                string Doc() => "TypeNameHandling.All is dangerous";
+            }
+            """);
+    }
 }

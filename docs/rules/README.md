@@ -1,6 +1,6 @@
 # CSharp Doctor rules
 
-CSharp Doctor complements built-in **CA** and **IDE** analyzers. It focuses on high-signal patterns that are easy to miss in CLI scans or are not enabled by default in every repo.
+CSharp Doctor complements built-in **CA** and **IDE** analyzers. It focuses on high-signal patterns that are easy to miss in CLI scans or are not enabled by default in every repo. **95** rules/checks ship today (Roslyn lint + optional solution inspectors).
 
 ## Rule index
 
@@ -12,6 +12,7 @@ CSharp Doctor complements built-in **CA** and **IDE** analyzers. It focuses on h
 | CSD0004 | Security | Warning | Hardcoded secrets in literals |
 | CSD0005 | Security | Warning | `System.Random` in security context |
 | CSD0006 | Security | Warning | Empty `catch` blocks |
+| CSD0008 | Security | Warning | Public pointer fields |
 | CSD0007 | Security | Warning | Raw SQL with interpolation/concat |
 | CSD0009 | Security | Warning | Unsafe XML DTD processing |
 | CSD0010 | Security | Error | Newtonsoft `TypeNameHandling` not None |
@@ -20,6 +21,10 @@ CSharp Doctor complements built-in **CA** and **IDE** analyzers. It focuses on h
 | CSD0013 | Security | Warning | Insecure JWT bearer options |
 | CSD0014 | Security | Warning | Secrets in attribute arguments |
 | CSD0015 | Security | Warning | `Regex` without match timeout |
+| CSD0016 | Security | Warning | Path traversal via dynamic file path |
+| CSD0017 | Security | Warning | Command injection via `Process.Start` |
+| CSD0018 | Security | Warning | SSRF via dynamic HTTP URL |
+| CSD0019 | Security | Warning | Open redirect via dynamic URL |
 | CSD0101 | Correctness | Warning | Unobserved `Task` |
 | CSD0102 | Correctness | Warning | `IDisposable` without `using` |
 | CSD0103 | Correctness | Warning | Sync-over-async (`.Result`/`.Wait()`) |
@@ -28,13 +33,35 @@ CSharp Doctor complements built-in **CA** and **IDE** analyzers. It focuses on h
 | CSD0106 | Correctness | Warning | `DateTime.Now` on persistence fields |
 | CSD0107 | Correctness | Warning | Class `Dispose` omits fields |
 | CSD0108 | Correctness | Warning | `lock(this)` / `lock(typeof(...))` |
+| CSD0109 | Correctness | Warning | `GC.Collect()` calls |
+| CSD0110 | Correctness | Warning | `GC.Collect()` without `WaitForPendingFinalizers()` |
+| CSD0111 | Correctness | Warning | Parsing/formatting without culture |
+| CSD0112 | Correctness | Warning | `NotImplementedException` in concrete methods |
+| CSD0113 | Correctness | Warning | Legacy `ArrayList` / `Hashtable` usage |
+| CSD0114 | Correctness | Warning | Static field assigned from instance method |
+| CSD0115 | Correctness | Warning | `Monitor.Enter` without `Exit` in same method |
+| CSD0116 | Correctness | Warning | Public/non-static P/Invoke |
+| CSD0117 | Correctness | Warning | Disposable type subscribes to events without unsubscribe |
+| CSD0118 | Correctness | Warning | `ReaderWriterLock` acquire without release |
+| CSD0119 | Correctness | Warning | Unsynchronized read of mutable instance state |
+| CSD0120 | Correctness | Info | P/Invoke outside `NativeMethods` class (`design` tag) |
 | CSD0201 | Performance | Warning | LINQ materialization in loop |
 | CSD0202 | Performance | Warning | String concat in loop |
 | CSD0203 | Performance | Info | Boxing in logging |
 | CSD0204 | Performance | Warning | `new HttpClient()` in loop |
 | CSD0205 | Performance | Warning | Multiple `IEnumerable` enumeration |
 | CSD0206 | Performance | Warning | `string.Format` in loop |
+| CSDE0008 | Performance | Warning | `SaveChanges` / `SaveChangesAsync` in loop (`efcore` tag) |
 | CSD0301 | Maintainability | Info | Public instance fields (`design` tag) |
+| CSD0302 | Maintainability | Info | Public `const` fields (`design` tag) |
+| CSD0303 | Maintainability | Warning | Mutable static fields |
+| CSD0304 | Maintainability | Info | Instance fields that could be `readonly` (`design` tag) |
+| CSD0305 | Maintainability | Info | Method too large or complex (`design` tag) |
+| CSD0306 | Maintainability | Info | Too many local variables (`design` tag) |
+| CSD0307 | Maintainability | Info | Type too large (`design` tag) |
+| CSD0308 | Maintainability | Info | Type has too many methods (`design` tag) |
+| CSD0309 | Maintainability | Info | Type has too many fields (`design` tag) |
+| CSD0310 | Maintainability | Warning | Unmaintainable method (size/complexity) |
 | CSD0401 | AspNetCore | Warning | Minimal API without auth |
 | CSD0402 | AspNetCore | Error | `DbContext` as singleton |
 | CSD0403 | AspNetCore | Error | CORS `AllowAnyOrigin` + `AllowCredentials` |
@@ -50,6 +77,48 @@ CSharp Doctor complements built-in **CA** and **IDE** analyzers. It focuses on h
 | CSD0414 | AspNetCore | Warning | `AddAuthentication` without `UseAuthentication` |
 | CSD0415 | AspNetCore | Warning | EF `EnableSensitiveDataLogging` |
 | CSD0416 | AspNetCore | Warning | EF `EnableDetailedErrors` |
+| CSD0501 | Observability | Warning | Sensitive data in logs |
+| CSD0502 | Observability | Warning | Exception not passed correctly to `LogError` |
+| CSD0503 | Observability | Warning | Raw HTTP request body/headers logged |
+| CSDW0001 | Wiring | Warning | Unregistered hosted service (`--wiring`) |
+| CSDW0008 | Wiring | Warning | Unregistered constructor dependency (`--wiring`) |
+| CSDW0010 | Wiring | Warning | Singleton depends on scoped service (`--wiring`) |
+| CSDE0001 | EfMigration | Warning | Migration drops column (`--ef`) |
+| CSDE0002 | EfMigration | Warning | NOT NULL column without default (`--ef`) |
+| CSDE0006 | EfMigration | Warning | Column type shrink data loss (`--ef`) |
+| CSDA0001 | Architecture | Warning | Namespace dependency cycle (`--architecture`) |
+| CSDA0002 | Architecture | Warning | Mutually dependent namespaces (`--architecture`) |
+| CSDA0003 | Architecture | Info | Potentially dead type (`--architecture`, `design` tag) |
+| CSDA0004 | Architecture | Info | Excessive class coupling (`--architecture`, `design` tag) |
+| CSDA0005 | Architecture | Warning | Duplicate type across assemblies (`--architecture`) |
+| CSDA0006 | Architecture | Info | Potentially dead method (`--architecture`, `design` tag) |
+| CSDA0007 | Architecture | Info | Potentially dead field (`--architecture`, `design` tag) |
+| CSDA0008 | Architecture | Warning | Mutually dependent types (`--architecture`) |
+| CSDA0009 | Architecture | Warning | Source file outside project directory (`--architecture`) |
+| CSDA0010 | Architecture | Warning | Forbidden namespace dependency (`--architecture`, config policy) |
+| CSDA0011 | Architecture | Warning | Forbidden assembly reference (`--architecture`, config policy) |
+| CSDS0001 | Security | Error/Warning | Vulnerable direct NuGet package (`--sca`) |
+| CSDS0002 | Security | Warning/Info | Vulnerable transitive NuGet package (`--sca`) |
+
+Solution-scoped wiring (`CSDW*`), EF migration (`CSDE0001`/`0002`/`0006`), architecture (`CSDA*`), and SCA (`CSDS*`) rules require `--wiring` / `--ef` / `--architecture` / `--sca` (or `checks` in config). `CSDE0008` runs with default lint when the project has EF Core references.
+
+### Architecture policy (config)
+
+```json
+{
+  "checks": { "architecture": true },
+  "architecturePolicy": {
+    "forbiddenNamespaceDependencies": [
+      { "from": "MyApp.UI", "to": "MyApp.Data" }
+    ],
+    "forbiddenAssemblyReferences": [
+      { "from": "MyApp.UI", "to": "MyApp.Data" }
+    ]
+  }
+}
+```
+
+Use a `*` suffix for prefix matching (e.g. `"MyApp.UI*"`).
 
 ASP.NET rules (`CSD04xx`) run only when the containing project references ASP.NET Core (detected from `.csproj`).
 

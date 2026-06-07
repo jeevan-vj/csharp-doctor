@@ -3,15 +3,34 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>CSharpDoctor.Cli</RootNamespace>
     <AssemblyName>csharp-doctor</AssemblyName>
-    <Description>CLI for scanning .NET solutions with CSharp Doctor.</Description>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>csharp-doctor</ToolCommandName>
-    <PackageId>CSharpDoctor.Cli</PackageId>
-    <Version>0.1.0</Version>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;NU5104</NoWarn>
   </PropertyGroup>
+
+  <PropertyGroup Label="NuGet">
+    <PackageId>CSharpDoctor.Cli</PackageId>
+    <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <Title>CSharp Doctor CLI</Title>
+    <Description>Roslyn-based code health scanner for .NET solutions. 57 rules across security, correctness, performance, maintainability, observability, wiring, EF migrations, and ASP.NET Core. Install as a global tool (`dotnet tool install -g CSharpDoctor.Cli`) or run once via `dnx CSharpDoctor.Cli@latest -- .`.</Description>
+    <PackageTags>roslyn;analyzer;lint;cli;dotnet-tool;security;sast;sarif;aspnetcore</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>https://github.com/jeevan-vj/csharp-doctor/releases</PackageReleaseNotes>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CSharpDoctor.Core\CSharpDoctor.Core.csproj" />
     <ProjectReference Include="..\CSharpDoctor.Analyzers\CSharpDoctor.Analyzers.csproj" />
+    <ProjectReference Include="..\CSharpDoctor.Wiring\CSharpDoctor.Wiring.csproj" />
+    <ProjectReference Include="..\CSharpDoctor.Ef\CSharpDoctor.Ef.csproj" />
+    <ProjectReference Include="..\CSharpDoctor.Architecture\CSharpDoctor.Architecture.csproj" />
+    <ProjectReference Include="..\CSharpDoctor.Sca\CSharpDoctor.Sca.csproj" />
     <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <ItemGroup Label="Package assets">
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 </Project>

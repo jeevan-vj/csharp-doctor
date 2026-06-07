@@ -11,10 +11,10 @@ public sealed class Csd0004HardcodedSecretAnalyzer : CSharpDoctorAnalyzerBase
 {
     private static readonly Regex[] SecretPatterns =
     {
-        new Regex(@"Password\s*=\s*[^;'""\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new Regex(@"api[_-]?key\s*=\s*[^;'""\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new Regex(@"Bearer\s+eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-        new Regex(@"Secret\s*=\s*[^;'""\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new Regex(@"Password\s*=\s*[^;'""\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200)),
+        new Regex(@"api[_-]?key\s*=\s*[^;'""\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200)),
+        new Regex(@"Bearer\s+eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200)),
+        new Regex(@"Secret\s*=\s*[^;'""\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200)),
     };
 
     protected override RuleDescriptor Descriptor { get; } = new RuleDescriptor(

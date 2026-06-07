@@ -72,6 +72,22 @@ public sealed class InspectOrchestratorTests
     }
 
     [Fact]
+    public async Task QualityGateMaxWarnings_FailsExitCode_WhenWarningsPresent()
+    {
+        using var fixture = new TempSolutionFixture();
+        File.WriteAllText(
+            Path.Combine(fixture.Root, ConfigResolver.ConfigFileName),
+            """{ "failOn": "none", "qualityGates": { "enabled": true, "maxWarnings": 0 } }""");
+
+        var orchestrator = new InspectOrchestrator(() => AnalyzerCatalog.CreateAll());
+        var result = await orchestrator.RunAsync(new InspectRequest(fixture.Root, InspectMode.Full));
+
+        result.ExitCode.ShouldBe(1);
+        result.QualityGates!.Passed.ShouldBeFalse();
+        result.HotSpots!.IssuesByRule.ShouldNotBeEmpty();
+    }
+
+    [Fact]
     public void FailOnNone_AlwaysExitsZero_EvenWithErrors()
     {
         var diagnostics = new[]
@@ -87,9 +103,18 @@ public sealed class InspectOrchestratorTests
     [Fact]
     public void JsonReporter_V1Schema_ContainsSchemaVersion()
     {
-        var result = new InspectResult([], 0, 0, TimeSpan.FromMilliseconds(12), 0);
+        var metrics = new ScanMetrics(
+            0, 0, 0, 0, 0,
+            new Dictionary<string, MetricBucket>(),
+            new Dictionary<string, MetricBucket>(),
+            new Dictionary<string, MetricBucket>());
+        var result = new InspectResult(
+            [], 0, 0, TimeSpan.FromMilliseconds(12), 0,
+            Metrics: metrics,
+            QualityGates: new QualityGateEvaluation(false, true, []),
+            HotSpots: new HotSpotsReport([], [], []));
         var json = JsonReportBuilder.Build(result, InspectMode.Full);
-        json.ShouldContain("\"schemaVersion\": 1");
+        json.ShouldContain("\"schemaVersion\": 2");
     }
 
     [Fact]
