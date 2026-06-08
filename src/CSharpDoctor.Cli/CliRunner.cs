@@ -16,6 +16,8 @@ namespace CSharpDoctor.Cli;
 /// <summary>Builds and runs the csharp-doctor command. Extracted so output can be captured in tests.</summary>
 public static class CliRunner
 {
+    internal const string DefaultHtmlReportFileName = "csharp-doctor-report.html";
+
     public static Task<int> RunAsync(string[] args, TextWriter output, TextWriter error)
     {
         var targetArgument = new Argument<string?>("path", "Directory, solution, or project to scan")
@@ -28,7 +30,7 @@ public static class CliRunner
         var projectOption = new Option<string?>("--project", "Specific project or solution path");
         var failOnOption = new Option<FailOnLevel>("--fail-on", () => FailOnLevel.Error, "Exit code gate");
         var formatOption = new Option<OutputFormat>("--format", () => OutputFormat.Console, "Output format (console, json, sarif, html)");
-        var outputOption = new Option<string?>("--output", "Write report to file (recommended with --format html)");
+        var outputOption = new Option<string?>("--output", "Report file path (default with --format html: <scan-path>/csharp-doctor-report.html)");
         var jsonOption = new Option<bool>("--json", "Emit JSON report (alias for --format json)");
         var annotationsOption = new Option<bool>("--annotations", "Emit GitHub Actions annotations");
         var noLintOption = new Option<bool>("--no-lint", "Skip Roslyn lint analyzers");
@@ -175,9 +177,12 @@ public static class CliRunner
             var rendered = orchestrator.RenderOutput(result, request, config);
             var outputPath = parseResult.GetValueForOption(outputOption);
 
-            if (outputFormat == OutputFormat.Html && !string.IsNullOrWhiteSpace(outputPath))
+            if (outputFormat == OutputFormat.Html)
             {
-                var fullPath = Path.GetFullPath(outputPath);
+                var reportPath = string.IsNullOrWhiteSpace(outputPath)
+                    ? Path.Combine(targetDirectory, DefaultHtmlReportFileName)
+                    : outputPath;
+                var fullPath = Path.GetFullPath(reportPath);
                 var directory = Path.GetDirectoryName(fullPath);
                 if (!string.IsNullOrWhiteSpace(directory))
                 {
