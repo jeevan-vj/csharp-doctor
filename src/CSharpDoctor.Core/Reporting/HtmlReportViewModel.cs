@@ -77,7 +77,7 @@ public static class HtmlReportViewModel
             .Select(static pair => pair.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var diagnostic in diagnostics.Where(static d =>
+        foreach (var diagnostic in diagnostics.Where(d =>
             d.Severity == DiagnosticSeverity.Warning
             && hotRuleKeys.Contains($"{d.Plugin}/{d.Rule}")))
         {

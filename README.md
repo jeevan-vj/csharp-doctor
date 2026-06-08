@@ -37,6 +37,7 @@ If the package is not on NuGet.org yet, use [install from source](#install) or a
 | Only staged files | `csharp-doctor --staged` |
 | CI: fail on errors | `csharp-doctor . --fail-on error` |
 | JSON report | `csharp-doctor . --format json` |
+| HTML dashboard | `csharp-doctor . --format html --output report.html` |
 | SARIF (e.g. GitHub Advanced Security) | `csharp-doctor . --format sarif > report.sarif` |
 | GitHub Actions annotations | `csharp-doctor . --annotations` |
 
@@ -156,6 +157,7 @@ csharp-doctor --project <path>    # specific .csproj or .sln
 csharp-doctor --diff <ref>        # changed files only (e.g. main, origin/main)
 csharp-doctor --staged            # staged files only
 csharp-doctor --format json       # JSON report
+csharp-doctor --format html --output report.html  # HTML dashboard
 csharp-doctor --format sarif      # SARIF (redirect to a file)
 csharp-doctor --fail-on error     # exit 1 when errors present (CI gate)
 csharp-doctor --fail-on warning   # stricter gate

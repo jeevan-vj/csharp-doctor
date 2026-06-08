@@ -28,6 +28,7 @@ Thumbs.db
 # *.received.*
 
 ## Secrets
+.env
 *.pfx
 secrets.json
 appsettings.*.local.json

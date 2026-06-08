@@ -74,6 +74,14 @@ JSON output (`--json`) uses **schema version 2** and includes:
 
 Save a prior JSON report as `baselinePath` to gate on `maxNewIssues` (compares diagnostic `identity` values).
 
+## HTML report
+
+```bash
+csharp-doctor . --all-checks --format html --output csharp-doctor-report.html
+```
+
+See [docs/html-report.md](html-report.md) for section layout, CI artifact upload, and quality gate workflow.
+
 ## Precedence
 
 1. CLI flags (`--fail-on`, `--no-lint`, etc.)
