@@ -49,11 +49,7 @@ public sealed class InspectOrchestrator
             _ => request.IncludeFiles,
         };
 
-        var projects = ProjectDiscovery.FindProjects(request.TargetDirectory);
-        var scanRoot = projects.FirstOrDefault() is not null
-            ? Path.GetDirectoryName(projects[0]) ?? request.TargetDirectory
-            : request.TargetDirectory;
-
+        var scanRoot = ProjectDiscovery.ResolveScanRoot(request.TargetDirectory);
         var sourceFiles = ProjectDiscovery.FindSourceFiles(scanRoot, includeFiles);
         var csprojPaths = ProjectDiscovery.FindCsprojFiles(request.TargetDirectory);
         var fileCapabilities = ProjectFileCapabilities.Build(csprojPaths, sourceFiles);
