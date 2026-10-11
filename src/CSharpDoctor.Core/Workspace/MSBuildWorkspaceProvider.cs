@@ -57,20 +57,59 @@ public sealed class MSBuildWorkspaceProvider : IDisposable
 
         workspace.WorkspaceFailed += (_, e) => _diagnostics?.WriteLine($"workspace: {e.Diagnostic.Message}");
 
-        if (projects[0].EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+        // Roslyn 4.12 OpenSolutionAsync reads classic .sln files only. .slnx is XML; open the
+        // projects it lists. OpenProjectAsync also loads ProjectReferences, so a later explicit
+        // open of a project already pulled in throws "already part of the workspace".
+        if (ProjectDiscovery.IsSolutionFile(projects[0]))
         {
-            await workspace.OpenSolutionAsync(projects[0], cancellationToken: cancellationToken).ConfigureAwait(false);
+            if (projects[0].EndsWith(".slnx", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var project in ProjectDiscovery.ReadSlnxProjectPaths(projects[0]))
+                {
+                    await OpenProjectIfNeededAsync(workspace, project, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                await workspace.OpenSolutionAsync(projects[0], cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
         }
         else
         {
             foreach (var project in projects)
             {
-                await workspace.OpenProjectAsync(project, cancellationToken: cancellationToken).ConfigureAwait(false);
+                await OpenProjectIfNeededAsync(workspace, project, cancellationToken).ConfigureAwait(false);
             }
         }
 
         return workspace.CurrentSolution;
     }
+
+    private async Task OpenProjectIfNeededAsync(
+        MSBuildWorkspace workspace,
+        string projectPath,
+        CancellationToken cancellationToken)
+    {
+        var fullPath = Path.GetFullPath(projectPath);
+        if (IsProjectLoaded(workspace.CurrentSolution, fullPath))
+        {
+            return;
+        }
+
+        try
+        {
+            await workspace.OpenProjectAsync(fullPath, cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (ArgumentException ex) when (ex.Message.Contains("already part of the workspace", StringComparison.Ordinal))
+        {
+            _diagnostics?.WriteLine($"workspace: skipped '{fullPath}' ({ex.Message})");
+        }
+    }
+
+    private static bool IsProjectLoaded(Solution solution, string fullPath) =>
+        solution.Projects.Any(project =>
+            project.FilePath is not null
+            && string.Equals(Path.GetFullPath(project.FilePath), fullPath, StringComparison.OrdinalIgnoreCase));
 
     private static void EnsureLocatorRegistered()
     {

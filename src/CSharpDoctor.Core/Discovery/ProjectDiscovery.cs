@@ -1,8 +1,14 @@
+using System.Xml.Linq;
+
 namespace CSharpDoctor.Core.Discovery;
 
 /// <summary>Discovers solutions and projects under a directory.</summary>
 public static class ProjectDiscovery
 {
+    public static bool IsSolutionFile(string path) =>
+        path.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase);
+
     public static IReadOnlyList<string> FindProjects(string directory)
     {
         var root = Path.GetFullPath(directory);
@@ -11,13 +17,51 @@ public static class ProjectDiscovery
             return [];
         }
 
-        var solutions = Directory.GetFiles(root, "*.sln", SearchOption.AllDirectories);
-        if (solutions.Length > 0)
+        var solutions = Directory.GetFiles(root, "*.sln", SearchOption.AllDirectories)
+            .Concat(Directory.GetFiles(root, "*.slnx", SearchOption.AllDirectories))
+            .Where(static path => IsSolutionFile(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static path => path.Count(static c => c is '\\' or '/'))
+            .ThenBy(static path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (solutions.Count > 0)
         {
-            return solutions.OrderBy(static p => p, StringComparer.OrdinalIgnoreCase).ToList();
+            return solutions;
         }
 
         return FindCsprojFiles(root);
+    }
+
+    /// <summary>
+    /// Directory whose <c>*.cs</c> files are in scope. A directory target is scanned as given.
+    /// A file target is scanned from its parent directory.
+    /// </summary>
+    public static string ResolveScanRoot(string target)
+    {
+        var full = Path.GetFullPath(target);
+        if (File.Exists(full))
+        {
+            return Path.GetDirectoryName(full) ?? full;
+        }
+
+        return full;
+    }
+
+    /// <summary>Project file paths declared by an XML solution (<c>.slnx</c>), resolved against the solution directory.</summary>
+    public static IReadOnlyList<string> ReadSlnxProjectPaths(string slnxPath)
+    {
+        var fullSlnx = Path.GetFullPath(slnxPath);
+        var baseDir = Path.GetDirectoryName(fullSlnx) ?? Directory.GetCurrentDirectory();
+        var document = XDocument.Load(fullSlnx);
+
+        return document.Descendants()
+            .Where(static element => element.Name.LocalName == "Project")
+            .Select(element => element.Attribute("Path")?.Value)
+            .Where(static path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => Path.GetFullPath(Path.Combine(baseDir, path!)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     public static IReadOnlyList<string> FindCsprojFiles(string directory)

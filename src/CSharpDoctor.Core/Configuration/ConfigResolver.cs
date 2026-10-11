@@ -135,7 +135,8 @@ public static class ConfigResolver
     }
 
     private static bool IsProjectBoundary(DirectoryInfo directory) =>
-        directory.GetFiles("*.sln").Length > 0
+        directory.GetFiles("*.sln").Any(static file => file.Name.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+        || directory.GetFiles("*.slnx").Length > 0
         || directory.GetFiles(".git").Length > 0
         || (directory.Parent is null);
 
